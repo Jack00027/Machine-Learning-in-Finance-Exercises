@@ -23,11 +23,11 @@ def show(i,T=0):
     if (T == 0):
         print('Training image number',i,'is supposed to be:',y_train[i]) # The label of training data point is printed
         plt.imshow(x_train[i],cmap='Greys')
-        plt.show()
+        plt.show(block=False)
     else:
         print('Test image number',i,'is supposed to be:',y_test[i]) # The label of training data point is printed
         plt.imshow(x_test[i],cmap='Greys')
-        plt.show()
+        plt.show(block=False)
         
 image_index = np.random.randint(60000)  # You may select anything up to 60,000
 show(image_index)
@@ -101,7 +101,7 @@ for i in range(100): # Prediction on 100 test data points
     if pred.argmax() != y_test[image_index]: #show if prediction is not correct
         print(image_index)
         plt.imshow(x_test[image_index].reshape(28, 28),cmap='Greys')
-        plt.show()
+        plt.show(block=False)
         print('Prediction',pred.argmax())
         print('Grand Truth',y_test[image_index])
 
