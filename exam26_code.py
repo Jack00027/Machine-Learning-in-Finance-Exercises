@@ -1,4 +1,4 @@
-
+# %%    
 ######## Deep Simulation code ########
 ###### Load libraries and set parameters.
 import numpy as np
@@ -37,7 +37,7 @@ Ntrain = int(T*250) # time steps. T*250 is approximately 1 timestep per day.
 ## Train/Test setup
 Ktrain = 40000 # Size of training data
 Ktest = 2000 # Size of test data
-epochs = 5
+epochs = 15
 batch_size = 256
 activator = "tanh" ## Activation function to use in the networks
 ## Network structure
@@ -49,12 +49,12 @@ n = 200  # nodes for nodes in hidden layers
 
 
 
-#### The code provides 3 stockm odels
+#### The code provides 3 stock models
 # 1 for Black Scholes model
 # 2 for flexible drift/diff function, here CEV
 # 3 stochvol model like Heston
 # We go with a random choice
-Stockmodel = int(np.ceil(3*np.random.sample(1)))
+Stockmodel = int(np.ceil(3*np.random.sample(1)).item())
 Stockmodel = 3
 
 mu = 0.02  ## Q-dynamics: mu=0
@@ -621,7 +621,6 @@ MC_stderr = np.std( MC_f ) / np.sqrt(Ktest)
 xtest = shape_inputs(S_testpath)
 ytest = f(S_testpath)  ## Option payoffs
 
-
 #### Visualisation of results ####
 NNtest = model_wealth.predict(xtest,verbose=0)[:,0]   ## Terminal wealth NN
 difftest = NNtest - ytest   ## Error in terminal wealth
@@ -672,4 +671,50 @@ plt.plot( S_testpath[:,Ntest,0], NNtest, 'o', alpha=0.3, markersize=3)
 plt.title("Option payoffs (in blue) and NN terminal wealth (in orange)")
 plt.show()
 
+# %%
+from scipy.stats import norm
 
+def BS_delta(S, K, T_rem, sigma, r=0.0):
+    """Analytical Black-Scholes call delta = N(d1)."""
+    S = np.asarray(S, dtype=float)
+    if T_rem <= 1e-12:
+        return (S > K).astype(float)
+    d1 = (np.log(S/K) + (r + 0.5*sigma**2)*T_rem) / (sigma*np.sqrt(T_rem))
+    return norm.cdf(d1)
+
+# Pick the BS volatility to compare against, depending on the active model
+if Stockmodel == 1:
+    sigma_bs = param[0]                  # the BS vol itself
+elif Stockmodel == 2:
+    sigma_bs = param[0] * S0**(param[1]-1)   # CEV local vol at S=S0
+else:
+    sigma_bs = param[2]                  # Heston long-term vol
+
+def Comparehedge(t=0.1):
+    for i in range(Ntest):
+        if i*T/Ntest <= t:
+            k = i
+    t = k*T/Ntest
+    Svals = S_testpath[:, k, 0]
+    timeprice = np.concatenate(
+        (np.reshape(np.repeat(TimeConv(TimePoints[k]), Ktest), (Ktest, 1)),
+         np.reshape(Svals, (Ktest, 1))), axis=1)
+    h_NN = hedge.predict(timeprice, verbose=0)[:, 0]
+
+    # Sort by spot for a clean BS-delta line
+    order = np.argsort(Svals)
+    S_sorted = Svals[order]
+    bs_d   = BS_delta(S_sorted, strike, T - t, sigma_bs, r=0.0)
+
+    plt.plot(Svals, h_NN, 'o', color='C0', label='NN hedge', alpha=0.5, markersize=3)
+    plt.plot(S_sorted, bs_d, '-', color='orange', label=f'BS delta (σ={sigma_bs:.3f})')
+    plt.xlabel('Spot S'); plt.ylabel('Position')
+    plt.title(f"NN hedge (blue) vs BS delta (orange) — TTM: {round(T-t, prec)}")
+    plt.legend()
+    plt.show()
+
+for t in tshow:
+    Comparehedge(t)
+    
+    
+    
